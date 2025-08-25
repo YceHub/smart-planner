@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Planner</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#22d3ee" />
+  <style>
+    :root{
+      --bg:#0f172a; /* slate-900 */
+      --panel:#111827; /* gray-900 */
+      --muted:#94a3b8; /* slate-400 */
+      --text:#e5e7eb; /* gray-200 */
+      --brand:#22d3ee; /* cyan-400 */
+      --accent:#a78bfa; /* violet-400 */
+      --danger:#ef4444; /* red-500 */
+      --ok:#22c55e; /* green-500 */
+      --warn:#f59e0b; /* amber-500 */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; background: radial-gradient(1200px 600px at 10% -10%, #1e293b, transparent), radial-gradient(1200px 600px at 110% 10%, #0e7490, transparent), var(--bg); color:var(--text);}    
+    .container{max-width:1100px; margin:32px auto; padding:0 16px}
+    header{display:flex; gap:16px; align-items:center; justify-content:space-between; margin-bottom:18px}
+    .title{font-size:clamp(20px, 4vw, 36px); letter-spacing:.2px; font-weight:800; display:flex; align-items:center; gap:12px}
+    .badge{font-size:12px; color:#0f172a; background:linear-gradient(135deg, var(--brand), var(--accent)); padding:6px 10px; border-radius:999px; font-weight:700}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); box-shadow:var(--shadow); border-radius:var(--radius);}
+    .row{display:grid; grid-template-columns:1.2fr .8fr; gap:16px}
+    @media (max-width:900px){.row{grid-template-columns:1fr;}}
+    .card{padding:16px}
+    .muted{color:var(--muted)}
+    .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    button, .btn{appearance:none; border:none; border-radius:12px; padding:10px 14px; background:#0ea5e9; color:white; font-weight:700; cursor:pointer; box-shadow:var(--shadow); transition:.2s transform, .2s filter;}
+    button.ghost{background:transparent; border:1px dashed rgba(255,255,255,.25); color:var(--text)}
+    button:hover{transform:translateY(-1px); filter:saturate(1.1)}
+    button:disabled{opacity:.5; cursor:not-allowed;}
+    .danger{background:var(--danger)}
+    .ok{background:var(--ok)}
+    .warn{background:var(--warn)}
+
+    /* Form */
+    form.add{display:grid; grid-template-columns:1.2fr .9fr .6fr auto; gap:10px; align-items:end}
+    form.add input, form.add select, form.add textarea{width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:rgba(2,6,23,.6); color:var(--text)}
+    form.add textarea{grid-column:1/-1; min-height:60px; resize:vertical}
+    form.add .small{font-size:12px; color:var(--muted); margin-top:6px}
+    @media (max-width:900px){form.add{grid-template-columns:1fr}}
+
+    /* Lists */
+    .section-title{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0 6px}
+    .list{display:grid; gap:10px;}
+    .item{display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:12px; border-radius:14px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.02)}
+    .item.overdue{border-color: rgba(239,68,68,.5); background:rgba(239,68,68,.08)}
+    .item .when{font-size:12px; color:var(--muted)}
+    .item .title{font-size:16px; font-weight:700}
+    .pill{border-radius:999px; padding:4px 8px; font-size:12px; font-weight:800}
+    .P-High{background:rgba(239,68,68,.15); color:#fecaca}
+    .P-Medium{background:rgba(245,158,11,.15); color:#fde68a}
+    .P-Low{background:rgba(34,197,94,.15); color:#bbf7d0}
+    .actions{display:flex; gap:6px}
+    .actions button{padding:8px 10px; border-radius:10px; font-size:12px}
+    .done .title{text-decoration:line-through; opacity:.6}
+
+    .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    @media (max-width:900px){.grid-2{grid-template-columns:1fr}}
+    .stat{padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.03)}
+    .nextup{display:grid; gap:10px}
+    .countdown{font-variant-numeric: tabular-nums; font-weight:800}
+
+    .footer{opacity:.7; font-size:12px; text-align:center; margin-top:18px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title">🗓️ Smart Planner<span class="badge">v1</span></div>
+      <div class="controls">
+        <button id="btnNotify" class="ghost">🔔 Enable notifications</button>
+        <button id="btnTest" class="ghost">▶️ Test alarm</button>
+      </div>
+    </header>
+
+    <div class="row">
+      <!-- Left: Planner -->
+      <section class="panel card">
+        <h2 style="margin:0 0 8px">Add task</h2>
+        <form class="add" id="formAdd">
+          <div>
+            <label>Title</label>
+            <input id="title" required placeholder="What do you need to do?" />
+          </div>
+          <div>
+            <label>Due date & time</label>
+            <input id="due" type="datetime-local" required />
+            <div class="small">Alarms will fire at this time (or earlier by your lead time).</div>
+          </div>
+          <div>
+            <label>Priority</label>
+            <select id="priority">
+              <option>High</option>
+              <option selected>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+          <div>
+            <button class="ok" type="submit">＋ Add</button>
+          </div>
+          <div style="grid-column:1/-1">
+            <label>Notes (optional)</label>
+            <textarea id="notes" placeholder="Any extra details…"></textarea>
+          </div>
+        </form>
+
+        <div class="section-title">
+          <h3 style="margin:16px 0 6px">Your tasks</h3>
+          <div class="controls">
+            <label class="muted">Lead time</label>
+            <select id="lead">
+              <option value="0">At time</option>
+              <option value="5">5 min early</option>
+              <option value="10" selected>10 min early</option>
+              <option value="15">15 min early</option>
+              <option value="30">30 min early</option>
+            </select>
+            <label class="muted">Sort</label>
+            <select id="sort">
+              <option value="smart" selected>Smart (time + priority)</option>
+              <option value="time">By time</option>
+              <option value="priority">By priority</option>
+              <option value="created">Recently added</option>
+            </select>
+            <label class="muted"><input type="checkbox" id="toggleDone" /> Show completed</label>
+          </div>
+        </div>
+
+        <div id="list" class="list"></div>
+      </section>
+
+      <!-- Right: Overview / Next up -->
+      <aside class="panel card">
+        <div class="grid-2">
+          <div class="stat">
+            <div class="muted">Upcoming</div>
+            <div style="font-size:28px; font-weight:800" id="statUpcoming">0</div>
+          </div>
+          <div class="stat">
+            <div class="muted">Completed</div>
+            <div style="font-size:28px; font-weight:800" id="statDone">0</div>
+          </div>
+        </div>
+        <h3 style="margin:16px 0 8px">Next up</h3>
+        <div id="nextup" class="nextup"></div>
+        <hr style="border-color: rgba(255,255,255,.08); margin:16px 0">
+        <div class="muted">Tip: Keep this tab open to hear alarms. Click "Enable notifications" so you also get a popup.</div>
+      </aside>
+    </div>
+
+    <div class="footer">Made with vanilla HTML, CSS, and JS. Data is stored locally in your browser.</div>
+  </div>
+
+  <script>
+    // ===== Utilities =====
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+
+    const PRIORITY_WEIGHT = { High: 0, Medium: 1, Low: 2 };
+
+    const STORAGE = {
+      tasks: 'planner_tasks_v1',
+      settings: 'planner_settings_v1'
+    };
+
+    const nowMs = () => Date.now();
+    const toMs = (val) => val instanceof Date ? val.getTime() : new Date(val).getTime();
+    const fmt = (d) => new Date(d).toLocaleString();
+
+    // ===== State =====
+    let tasks = loadTasks();
+    let settings = loadSettings();
+
+    function loadTasks(){
+      try{ return JSON.parse(localStorage.getItem(STORAGE.tasks)||'[]'); }catch{ return [] }
+    }
+    function saveTasks(){ localStorage.setItem(STORAGE.tasks, JSON.stringify(tasks)); }
+
+    function loadSettings(){
+      try{ return JSON.parse(localStorage.getItem(STORAGE.settings)||'{}'); }catch{ return {} }
+    }
+    function saveSettings(){ localStorage.setItem(STORAGE.settings, JSON.stringify(settings)); }
+
+    // ===== Elements =====
+    const form = $('#formAdd');
+    const listEl = $('#list');
+    const nextupEl = $('#nextup');
+    const statUpcoming = $('#statUpcoming');
+    const statDone = $('#statDone');
+    const leadSel = $('#lead');
+    const sortSel = $('#sort');
+    const toggleDone = $('#toggleDone');
+    const btnNotify = $('#btnNotify');
+    const btnTest = $('#btnTest');
+
+    // Initialize UI from settings
+    if (settings.leadMin != null) leadSel.value = String(settings.leadMin);
+    if (settings.sort) sortSel.value = settings.sort;
+    if (settings.showDone) toggleDone.checked = true;
+
+    // ===== Notifications / Sound =====
+    let audioCtx = null;
+    function beep(){
+      try{
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(880, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.5, audioCtx.currentTime + 0.02);
+        o.connect(g).connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + 0.35);
+      }catch(e){ console.warn('Audio error', e); }
+    }
+    function notify(title, body){
+      if ('Notification' in window){
+        if (Notification.permission === 'granted'){
+          new Notification(title, { body });
+        }
+      }
+      beep();
+    }
+
+    function ensureNotificationPermission(){
+      if (!('Notification' in window)) return alert('Notifications not supported in this browser');
+      if (Notification.permission === 'granted'){
+        btnNotify.textContent = '🔔 Notifications on';
+        btnNotify.disabled = true;
+        return;
+      }
+      Notification.requestPermission().then(p => {
+        if (p === 'granted'){
+          btnNotify.textContent = '🔔 Notifications on';
+          btnNotify.disabled = true;
+          notify('Notifications enabled', 'You will see popups when a task is due.');
+        } else {
+          alert('You can enable notifications later from the browser site settings.');
+        }
+      });
+    }
+
+    btnNotify.addEventListener('click', ensureNotificationPermission);
+    btnTest.addEventListener('click', () => notify('Test alarm', 'This is how alarms will look & sound.'));
+
+    // ===== Add Task =====
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = $('#title').value.trim();
+      const due = $('#due').value;
+      const priority = $('#priority').value;
+      const notes = $('#notes').value.trim();
+      if (!title || !due) return;
+      const t = {
+        id: Math.random().toString(36).slice(2),
+        title, due, priority, notes,
+        done: false,
+        createdAt: new Date().toISOString(),
+        notifiedAt: null,
+        snoozedUntil: null
+      };
+      tasks.push(t);
+      saveTasks();
+      form.reset();
+      leadSel.value = leadSel.value; // keep selection
+      render();
+    });
+
+    // ===== List rendering =====
+    function render(){
+      // stats
+      const upcoming = tasks.filter(t => !t.done).length;
+      const completed = tasks.filter(t => t.done).length;
+      statUpcoming.textContent = upcoming;
+      statDone.textContent = completed;
+
+      // sort
+      const sortBy = sortSel.value;
+      let items = [...tasks];
+      if (!toggleDone.checked) items = items.filter(t => !t.done);
+      items.sort((a,b) => sorter(a,b, sortBy));
+
+      // render list
+      listEl.innerHTML = '';
+      for (const t of items){
+        const dueMs = toMs(t.snoozedUntil || t.due);
+        const isOverdue = !t.done && (dueMs < nowMs());
+        const div = document.createElement('div');
+        div.className = 'item ' + (t.done ? 'done' : '') + (isOverdue ? ' overdue' : '');
+        div.dataset.id = t.id;
+        div.innerHTML = `
+          <input type="checkbox" ${t.done? 'checked':''} aria-label="Toggle done" />
+          <div>
+            <div class="title">${escapeHtml(t.title)} <span class="pill P-${t.priority}">${t.priority}</span></div>
+            <div class="when">Due: <span class="due">${fmt(t.due)}</span>  •  <span class="countdown" data-due="${t.snoozedUntil || t.due}"></span></div>
+            ${t.notes? `<div class="muted">${escapeHtml(t.notes)}</div>`:''}
+          </div>
+          <div class="actions">
+            ${t.snoozedUntil ? `<button class="warn unsnooze">Unsnooze</button>`: `<button class="warn snooze">Snooze 5m</button>`}
+            <button class="ghost edit">Edit</button>
+            <button class="danger del">Delete</button>
+          </div>
+        `;
+        listEl.appendChild(div);
+      }
+
+      renderNextUp();
+      refreshCountdowns();
+    }
+
+    function sorter(a,b, mode){
+      if (mode === 'time') return toMs(a.due) - toMs(b.due);
+      if (mode === 'priority') return PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+      if (mode === 'created') return toMs(b.createdAt) - toMs(a.createdAt);
+      // smart: time then priority, with snooze respected
+      const ad = toMs(a.snoozedUntil || a.due);
+      const bd = toMs(b.snoozedUntil || b.due);
+      if (ad !== bd) return ad - bd;
+      return PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+
+    // ===== Item actions (event delegation) =====
+    listEl.addEventListener('click', (e) => {
+      const root = e.target.closest('.item');
+      if (!root) return;
+      const id = root.dataset.id;
+      const t = tasks.find(x => x.id === id);
+      if (!t) return;
+
+      if (e.target.matches('input[type="checkbox"]')){
+        t.done = e.target.checked;
+        saveTasks();
+        render();
+      } else if (e.target.classList.contains('del')){
+        if (confirm('Delete this task?')){
+          tasks = tasks.filter(x => x.id !== id);
+          saveTasks();
+          render();
+        }
+      } else if (e.target.classList.contains('snooze')){
+        t.snoozedUntil = new Date(nowMs() + 5*60*1000).toISOString();
+        t.notifiedAt = null; // so it can alert again later
+        saveTasks();
+        render();
+      } else if (e.target.classList.contains('unsnooze')){
+        t.snoozedUntil = null;
+        saveTasks();
+        render();
+      } else if (e.target.classList.contains('edit')){
+        const newTitle = prompt('Edit title', t.title);
+        if (newTitle != null) t.title = newTitle.trim() || t.title;
+        const newDue = prompt('Edit due (YYYY-MM-DD HH:MM)', t.due.replace('T',' ').slice(0,16));
+        if (newDue != null && newDue) t.due = newDue.replace(' ','T');
+        const newNotes = prompt('Edit notes', t.notes || '');
+        if (newNotes != null) t.notes = newNotes;
+        saveTasks();
+        render();
+      }
+    });
+
+    // Settings handlers
+    leadSel.addEventListener('change', () => { settings.leadMin = Number(leadSel.value); saveSettings(); render(); });
+    sortSel.addEventListener('change', () => { settings.sort = sortSel.value; saveSettings(); render(); });
+    toggleDone.addEventListener('change', () => { settings.showDone = toggleDone.checked; saveSettings(); render(); });
+
+    // ===== Next Up =====
+    function renderNextUp(){
+      const upcoming = tasks.filter(t => !t.done).sort((a,b)=>sorter(a,b,'smart')).slice(0,3);
+      nextupEl.innerHTML = '';
+      for (const t of upcoming){
+        const row = document.createElement('div');
+        row.className = 'item';
+        row.innerHTML = `
+          <div class="pill P-${t.priority}">${t.priority}</div>
+          <div>
+            <div class="title">${escapeHtml(t.title)}</div>
+            <div class="when">${fmt(t.due)} • <span class="countdown" data-due="${t.snoozedUntil || t.due}"></span></div>
+          </div>
+          <div class="actions">
+            <button class="warn snooze" data-id="${t.id}">Snooze 5m</button>
+          </div>
+        `;
+        nextupEl.appendChild(row);
+      }
+    }
+
+    // ===== Countdowns =====
+    function refreshCountdowns(){
+      $$('.countdown').forEach(el => {
+        const due = toMs(el.dataset.due);
+        const diff = due - nowMs();
+        el.textContent = formatDiff(diff);
+      });
+    }
+    function formatDiff(ms){
+      const sign = ms < 0 ? '-' : '';
+      ms = Math.abs(ms);
+      const s = Math.floor(ms/1000);
+      const h = Math.floor(s/3600);
+      const m = Math.floor((s%3600)/60);
+      const ss = s%60;
+      if (h>0) return `${sign}${h}h ${m}m ${ss}s`;
+      if (m>0) return `${sign}${m}m ${ss}s`;
+      return `${sign}${ss}s`;
+    }
+
+    // ===== Alarm Engine =====
+    function checkAlarms(){
+      const leadMs = (Number(leadSel.value) || 0) * 60 * 1000;
+      const now = nowMs();
+      let alerted = 0;
+      for (const t of tasks){
+        if (t.done) continue;
+        const baseTime = toMs(t.due);
+        const snoozeTime = t.snoozedUntil ? toMs(t.snoozedUntil) : null;
+        const alarmTime = (snoozeTime ?? baseTime) - leadMs;
+        const already = t.notifiedAt ? toMs(t.notifiedAt) : -Infinity;
+        if (now >= alarmTime && already < alarmTime){
+          t.notifiedAt = new Date().toISOString();
+          alerted++;
+          notify('⏰ ' + t.title, `Due ${leadMs? (Number(leadSel.value)+ ' min '): ''}at ${fmt(t.due)}`);
+        }
+      }
+      if (alerted){ saveTasks(); render(); }
+    }
+
+    // ===== Kick things off =====
+    render();
+    refreshCountdowns();
+    setInterval(refreshCountdowns, 1000);
+    setInterval(checkAlarms, 30 * 1000);
+
+    // If the user previously granted notifications, adjust button UI
+    if ('Notification' in window && Notification.permission === 'granted'){
+      btnNotify.textContent = '🔔 Notifications on';
+      btnNotify.disabled = true;
+    
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').then(reg => {
+        console.log('Service Worker registered:', reg);
+        }).catch(err => console.log('SW reg failed', err));
+        });
+        }
+    }
+  </script>
+</body>
+</html>
