@@ -31,3 +31,20 @@ self.addEventListener("activate", (e) => {
     )
   );
 });
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.createElement('button');
+  btn.textContent = 'Install Planner';
+  btn.onclick = () => {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then((choice) => {
+      console.log('User choice:', choice.outcome);
+      deferredPrompt = null;
+      btn.remove();
+    });
+  };
+  document.body.appendChild(btn);
+});
